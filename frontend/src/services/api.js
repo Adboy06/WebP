@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:5001/api"
+  baseURL: "https://hearty-warmth-production-e0d9.up.railway.app/api"
 });
 
 // attach JWT token automatically
