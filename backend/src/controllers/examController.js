@@ -21,7 +21,7 @@ export const generateExamAI = async (req, res) => {
       return res.status(400).json({ message: "Topic is required" });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Generate ${numQuestions} multiple-choice questions about ${topic}.
 Return only valid JSON with structure: { "title": "string", "questions": [{ "question": "string", "options": { "A": "...", "B": "...", "C": "...", "D": "..." }, "correctAnswer": "A|B|C|D" }] }.`;
 
