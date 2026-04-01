@@ -23,11 +23,18 @@ export const generateExamAI = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Generate ${numQuestions} multiple-choice questions about ${topic}.
-Return only valid JSON with structure: { "title": "string", "questions": [{ "question": "string", "options": { "A": "...", "B": "...", "C": "...", "D": "..." }, "correctAnswer": "A|B|C|D" }] }.`;
+Return only valid JSON with this exact structure: { "title": "string", "questions": [{ "question": "string", "options": { "A": "string", "B": "string", "C": "string", "D": "string" }, "correctAnswer": "A|B|C|D" }] }. Do not include any additional text, code blocks, or explanations.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const textOutput = response.text().trim();
+    let textOutput = response.text().trim();
+
+    // Clean the response: remove code block markers if present
+    if (textOutput.startsWith('```json')) {
+      textOutput = textOutput.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (textOutput.startsWith('```')) {
+      textOutput = textOutput.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
 
     let data;
     try {
@@ -36,8 +43,20 @@ Return only valid JSON with structure: { "title": "string", "questions": [{ "que
       return res.status(500).json({ message: "Gemini returned invalid JSON", output: textOutput });
     }
 
-    if (!data.title || !Array.isArray(data.questions)) {
-      return res.status(500).json({ message: "AI response is malformed", output: data });
+    // Validate the structure
+    if (!data.title || typeof data.title !== 'string' || !Array.isArray(data.questions)) {
+      return res.status(500).json({ message: "AI response is malformed: missing or invalid title/questions", output: data });
+    }
+
+    // Validate each question
+    for (let i = 0; i < data.questions.length; i++) {
+      const q = data.questions[i];
+      if (!q.question || typeof q.question !== 'string' ||
+          !q.options || typeof q.options !== 'object' ||
+          !q.options.A || !q.options.B || !q.options.C || !q.options.D ||
+          !q.correctAnswer || !['A', 'B', 'C', 'D'].includes(q.correctAnswer)) {
+        return res.status(500).json({ message: `Question ${i + 1} is malformed`, output: data });
+      }
     }
 
     res.json(data);
