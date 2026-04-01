@@ -1,8 +1,8 @@
 import Exam from "../models/Exam.js";
 import User from "../models/User.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
-const genAI = new GoogleGenerativeAI("AIzaSyDegqhADxapSYknwdcWgi6BcCuNOR2OLTQ");
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export const createExam = async (req, res) => {
   try {
@@ -21,19 +21,22 @@ export const generateExamAI = async (req, res) => {
       return res.status(400).json({ message: "Topic is required" });
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `Generate ${numQuestions} multiple-choice questions about ${topic}.
 Return only valid JSON with structure: { "title": "string", "questions": [{ "question": "string", "options": { "A": "...", "B": "...", "C": "...", "D": "..." }, "correctAnswer": "A|B|C|D" }] }.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const textOutput = response.text().trim();
+    const message = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "mixtral-8x7b-32768",
+      max_tokens: 700
+    });
+
+    const textOutput = message.choices[0].message.content.trim();
 
     let data;
     try {
       data = JSON.parse(textOutput);
     } catch (err) {
-      return res.status(500).json({ message: "Gemini returned invalid JSON", output: textOutput });
+      return res.status(500).json({ message: "Groq returned invalid JSON", output: textOutput });
     }
 
     if (!data.title || !Array.isArray(data.questions)) {
